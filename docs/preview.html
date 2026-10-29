@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Worktree Navigator — synthetic preview</title>
+  <style>html{color-scheme:light}body{margin:0;color:#202124}</style>
+</head>
+<body>
+<script type="module">
+import { createView } from '../src/view.js';
+import { createI18n } from '../src/i18n.js';
+
+// Entirely synthetic data. This preview never connects to Codex or reads projects.
+const locale = new URLSearchParams(location.search).get('lang') === 'zh-CN' ? 'zh-CN' : 'en';
+const i18n = createI18n(locale);
+document.documentElement.lang = locale;
+const chinese = locale === 'zh-CN';
+const repositories = [
+  { name: 'demo-app', mainRoot: '/projects/demo-app', commonDir: '/projects/demo-app/.git',
+    projectOptions: [{id:'demo-project',name:'demo-app'}], worktrees: [
+      {root:'/projects/worktrees/search',headRef:{type:'branch',string:'feature/search'},status:{stagedCount:2,unstagedCount:1},threads:[
+        {id:'demo-search',name:chinese?'实现搜索与筛选':'Build search and filters',cwd:'/projects/worktrees/search',updatedAt:1793235900},
+        {id:'demo-keyboard',name:chinese?'检查键盘导航':'Review keyboard navigation',cwd:'/projects/worktrees/search',updatedAt:1793232300},
+      ]},
+      {root:'/projects/worktrees/theme',headRef:{type:'branch',string:'fix/theme'},threads:[
+        {id:'demo-theme',name:chinese?'修复深色主题对比度':'Fix dark theme contrast',cwd:'/projects/worktrees/theme',updatedAt:1793228700},
+      ]},
+      {root:'/projects/worktrees/review',headRef:{type:'detached',sha:'a1b2c3d4e5f6'},threads:[]},
+    ]},
+  {name:'docs-site',mainRoot:'/projects/docs-site',commonDir:'/projects/docs-site/.git',
+    projectOptions:[{id:'docs-project',name:'docs-site'}],worktrees:[
+      {root:'/projects/worktrees/install-guide',headRef:{type:'branch',string:'docs/install-guide'},threads:[
+        {id:'demo-docs',name:chinese?'完善安装指南':'Improve the installation guide',cwd:'/projects/worktrees/install-guide',updatedAt:1793225100,archived:true},
+      ]},
+    ]},
+];
+const expanded = Object.fromEntries(repositories.flatMap(r=>r.worktrees.map(w=>[`worktree:${r.commonDir}:${w.root}`,true])));
+// Supply in-memory state so screenshots do not depend on browser history or storage.
+const previewWindow = {
+  document, navigator, crypto,
+  localStorage:{getItem:key=>key==='worktree-navigator-expanded-v1'?JSON.stringify(expanded):null,setItem(){}},
+};
+const css = await (await fetch('../src/navigator.css')).text();
+const view = createView({win:previewWindow,css,i18n,
+  cleanupWorktree:async()=>({removed:true}),navigate:async()=>{},onRefresh:()=>{},createSession:async()=>({threadId:'demo-created'}),
+});
+document.body.append(view.root);
+view.render(repositories);
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+{
+  "name": "codex-worktree-navigator",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "install:codex": "node scripts/build.mjs && node scripts/install.mjs",
+    "uninstall:codex": "node scripts/install.mjs --uninstall",
+    "check:package": "node scripts/check-package.mjs"
+  },
+  "description": "Browse Git worktrees and their Codex Desktop sessions.",
+  "license": "MIT",
+  "files": [
+    "src/",
+    "scripts/build.mjs",
+    "scripts/install.mjs",
+    "scripts/check.mjs",
+    "plugins/",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE",
+    "scripts/check-package.mjs",
+    "test/",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "docs/screenshots/*.png",
+    "docs/preview.html"
+  ]
+}
