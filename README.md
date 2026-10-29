@@ -56,8 +56,8 @@ Installer messages follow `LC_ALL`, then `LC_MESSAGES`, then `LANG`, with Englis
 ## Use
 
 - Expand repositories and worktrees; expansion state is saved locally.
-- Select **打开 ↗** to open an existing session. Session row text does not navigate.
-- Select **新建会话** to choose the original project and optionally enter a first message. Blank input creates an empty session; supplied text is queued for execution after Desktop opens it.
+- Select **Open ↗** to open an existing session. Session row text does not navigate.
+- Select **+ New session** to choose the original project and optionally enter a first message. Blank input creates an empty session; supplied text is queued for execution after Desktop opens it.
 - New sessions start with read-only permissions. Adjust them in Codex as needed. The original repository must already be trusted in Codex.
 - Refresh manually, on focus, or automatically every 60 seconds while visible. Deleted and prunable worktrees are excluded; worktrees with no sessions remain visible.
 - **Clean up** opens a confirmation dialog for one worktree. Stop tasks using the directory first. Cleanup preserves branches and Codex session records, and refuses main checkouts, locked worktrees, local changes, untracked/ignored files, and sessions loaded in the connected App Server. Detached commits must be retained by a local branch. Other Codex processes may have sessions outside this server’s visibility; close them before confirming. Cleanup uses `git worktree remove` without force. After an error or timeout, refresh to check the result before trying again.
