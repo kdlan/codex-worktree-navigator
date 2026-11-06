@@ -1,6 +1,6 @@
 {
   "name": "worktree-navigator",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Browse Git worktrees and Codex sessions / 浏览 Worktree 和 Codex 会话",
   "extensions": {
     "com.openai": {

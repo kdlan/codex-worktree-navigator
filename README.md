@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Browse **Repository → Worktree → Sessions** in a dedicated Worktrees page inside Codex Desktop. Open existing sessions or create a session in a linked worktree while retaining its original project.
+Browse **Repository → Worktree → Sessions** in a dedicated Worktrees page inside Codex Desktop, and open saved sessions.
 
 An independent community project, not affiliated with or endorsed by OpenAI. The interface and documentation support English and Simplified Chinese.
 
@@ -12,8 +12,8 @@ An independent community project, not affiliated with or endorsed by OpenAI. The
 
 ## Requirements
 
-- macOS, Git on PATH, and Node.js 22 or later (including npm) for building and installing.
-- Codex Desktop with MCP Apps global entries and an existing local App Server control socket. The recorded validation environment is Desktop 26.1023.51421 / build 22530, App Server 0.165.0. Other host versions need verification.
+- macOS, Git, sqlite3 and lsof on PATH, and Node.js 22 or later (including npm) for building and installing.
+- Codex Desktop with MCP Apps entries and a bundled server supporting `project/list` and `thread/list`. List endpoints were verified with Desktop 26.1103.31037 / build 25241 and bundled server 0.167.0-alpha.3.2.
 - The default app location is `/Applications/ChatGPT.app`. Use `--app` if your app has a different name or location.
 - A saved Codex project with at least one existing linked Git worktree. The main checkout itself is excluded.
 
@@ -43,7 +43,7 @@ npm run install:codex -- --node /absolute/path/to/node
 node scripts/install.mjs --help
 ```
 
-The installer defaults to the host's bundled Node runtime. `--node` must point to an executable Node.js 22+ runtime. `--codex-home` takes precedence over `CODEX_HOME`, then defaults to `~/.codex`. Use the same options when upgrading or uninstalling.
+The installer uses the bundled Node runtime; `--node` can select Node.js 22+. It records the bundled CLI path for list queries. `--codex-home` takes precedence over `CODEX_HOME`, then defaults to `~/.codex`. Use the same options when upgrading or uninstalling.
 
 ## Language
 
@@ -57,10 +57,9 @@ Installer messages follow `LC_ALL`, then `LC_MESSAGES`, then `LANG`, with Englis
 
 - Expand repositories and worktrees; expansion state is saved locally.
 - Select **Open ↗** to open an existing session. Session row text does not navigate.
-- Select **+ New session** to choose the original project and optionally enter a first message. Blank input creates an empty session; supplied text is queued for execution after Desktop opens it.
-- New sessions start with read-only permissions. Adjust them in Codex as needed. The original repository must already be trusted in Codex.
+- **+ New session** creates and opens a read-only session in the selected worktree under its original project. An optional first message is queued; the extension does not start model execution. Existing directory trust is required.
 - Refresh manually, on focus, or automatically every 60 seconds while visible. Deleted and prunable worktrees are excluded; worktrees with no sessions remain visible.
-- **Clean up** opens a confirmation dialog for one worktree. Stop tasks using the directory first. Cleanup preserves branches and Codex session records, and refuses main checkouts, locked worktrees, local changes, untracked/ignored files, and sessions loaded in the connected App Server. Detached commits must be retained by a local branch. Other Codex processes may have sessions outside this server’s visibility; close them before confirming. Cleanup uses `git worktree remove` without force. After an error or timeout, refresh to check the result before trying again.
+- **Clean up** removes a confirmed extra worktree while retaining branches and session records. Stop its tasks and archive its sessions first. Unarchived sessions (including empty and attached threads), open files, local changes (including untracked and ignored files), locks, and detached commits without a retaining branch prevent removal.
 - Detached HEAD entries show a short commit ID. Source branches are not inferred from matching commits.
 
 ## Upgrade and uninstall
@@ -81,35 +80,13 @@ Uninstall removes the registration and installed copy, retaining projects, sessi
 | --- | --- |
 | Installer cannot find an executable | Verify `--app`, or supply `--node`; the bundled CLI is required. |
 | Worktrees entry is missing | Restart Desktop, check Explore and the MCP registration. Host support varies by version. |
-| App Server connection fails | Check that your existing local App Server is running and uses the same Codex home. The default socket is `$CODEX_HOME/app-server-control/app-server-control.sock`; this extension does not start a server. |
+| Lists fail to load | Reinstall and reload the MCP connection. Check that `CODEX_CLI_PATH` points to the current bundled CLI. |
 | No worktrees appear | Save the repository as a Codex project, then check `git worktree list` and refresh. Only valid extra worktrees appear. |
-| Creation is unavailable | Open the main checkout as a Codex project and confirm trust through Codex. |
-| Creation partially fails | Check the reported session ID in native and archived sessions before creating another one. |
 
-The chat composer below the page is controlled by the host. Duplicate-creation protection lasts for the MCP process lifetime; after a restart, inspect existing sessions before retrying an interrupted creation.
+The global Worktrees page loads without a chat context. The chat composer is controlled by the host.
 
 ## Privacy and architecture
 
-The extension reads saved project roots, Git status, session navigation metadata (including title/preview), and trust settings through local files and the existing App Server. It does not read credential files or send telemetry. Entering a first message queues it in Codex; Codex then handles it using the user's configured model and services.
+Short-lived bundled app-server connections query projects and create persistent sessions. Read-only sqlite3 queries read navigation fields from `state_5.sqlite`, including empty sessions. Unsupported index versions fail explicitly. Fixed Git queries validate directories and lsof checks local process use. The extension does not read credential files or collect telemetry; the bundled server uses the existing Codex configuration.
 
-Discovery uses fixed read-only Git queries. Confirmed cleanup runs a fixed local `git worktree remove` command from the MCP process, without a shell. It uses the current user’s filesystem permissions and can delete the selected directory and its Git registration. Session creation persists the session and permissions, archives/unarchives it to release the creating connection, and optionally queues the message. It never grants directory trust. See [SECURITY.md](SECURITY.md) for reporting guidance.
-
-## Development
-
-```bash
-npm test
-npm run check
-```
-
-Tests use local Git repositories and simulated host protocols. The actual bundled-CLI install test runs when the supported macOS app is available, and otherwise reports a skip. CI runs on Linux and macOS with Node.js 22 and 24. Native Desktop UI acceptance is a separate manual check.
-
-- `src/model.js`, `src/host.js`: discovery, grouping, and session ownership.
-- `src/server/`: local App Server transport, Git queries, session creation, and MCP service.
-- `src/native-client.js`, `src/index.js`, `src/view.js`: host handshake, page lifecycle, and interface.
-- `scripts/`: build, installation, and source/release checks.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for validation and release requirements. Distribution files are allowlisted; local `.agents/` evidence and configuration files are excluded. npm publication is disabled with `private: true`; installation is from source.
-
-## License
-
-[MIT](LICENSE).
+Browsing and creation have separate RPC allowlists. New sessions are released before navigation to Desktop. Cleanup does not rely on the independent server’s loaded list and is not an atomic lock across applications: stop tasks using the directory and avoid starting new ones during cleanup. See [SECURITY.md](SECURITY.md).

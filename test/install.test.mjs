@@ -10,7 +10,7 @@ test('official CLI installation, upgrade and uninstall preserve unrelated config
     const install=()=>exec(process.execPath,['scripts/install.mjs','--codex-home',home]);
     await install();await install();
     const config=await readFile(join(home,'config.toml'),'utf8');assert.match(config,/keep-command/);assert.equal((config.match(/\[mcp_servers\.worktree_navigator\]/g)||[]).length,1);
-    const registered=JSON.parse((await exec(cli,['mcp','get','worktree_navigator','--json'],{env:{...process.env,CODEX_HOME:home}})).stdout);assert.equal(registered.enabled,true);assert.equal(registered.transport.type,'stdio');
+    const registered=JSON.parse((await exec(cli,['mcp','get','worktree_navigator','--json'],{env:{...process.env,CODEX_HOME:home}})).stdout);assert.equal(registered.enabled,true);assert.equal(registered.transport.type,'stdio');assert.equal(registered.transport.env.CODEX_CLI_PATH,cli);assert.doesNotMatch(config,/CODEX_APP_TOOLS_PIPE_PATH/);
     await exec(registered.transport.command,['--check',registered.transport.args[0]]);
     assert.match(await readFile(join(home,'extensions/worktree-navigator/page.html'),'utf8'),/ui\/notifications\/initialized/);
     await exec(process.execPath,['scripts/install.mjs','--codex-home',home,'--uninstall']);
