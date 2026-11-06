@@ -12,6 +12,7 @@ export function createView({ win, css, navigate, onRefresh, createSession, clean
   try { expanded = JSON.parse(win.localStorage.getItem(storageKey) || '{}'); } catch { expanded = {}; }
   if (!expanded || typeof expanded !== 'object' || Array.isArray(expanded)) expanded = {};
   let tree = [], error = '', warnings = [], busy = false, loaded = false, disposed = false;
+  let capabilities = {};
   let dialog = null, updateDialog = null;
   let renderAbort = new AbortController();
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -116,6 +117,8 @@ export function createView({ win, css, navigate, onRefresh, createSession, clean
     if (w.status?.stagedCount || w.status?.unstagedCount) branch.title = tr('gitStatus', {staged: w.status.stagedCount, unstaged: w.status.unstagedCount});
     const add = button(tr('newInPath', {path: w.root}), tr('newButton'), () => showCreate(w, r), 'wtn-new');
     const cleanup = button(tr('cleanupTitle'),tr('cleanup'),()=>showCleanup(w),'wtn-cleanup');
+    if (capabilities.createSession === false) { add.disabled = true; add.title = tr('desktopCreationUnavailable'); }
+    if (capabilities.cleanupWorktree === false) { cleanup.disabled = true; cleanup.title = tr('desktopCleanupUnavailable'); }
     return group(`worktree:${r.commonDir}:${w.root}`, 'wtn-worktree', [branch, path, count, add, cleanup], d => {
       const sessions = el('div', 'wtn-sessions');
       for (const t of w.threads) {
@@ -123,6 +126,7 @@ export function createView({ win, css, navigate, onRefresh, createSession, clean
         const row = el('div', 'wtn-thread'); row.dataset.wtnThread = t.id;
         row.append(el('span', 'wtn-session-title', name));
         if (t.archived) row.append(el('span', 'wtn-muted', tr('archived')));
+        if (['active', 'idle', 'notLoaded'].includes(t.status)) row.append(el('span', 'wtn-muted', tr(`threadStatus_${t.status}`)));
         const time = el('time', 'wtn-time');
         if (Number.isFinite(t.updatedAt)) { const date = new Date(t.updatedAt * 1000); time.dateTime = date.toISOString(); time.textContent = date.toLocaleString(i18n.locale); }
         else time.textContent = tr('unknownTime');
@@ -171,6 +175,6 @@ export function createView({ win, css, navigate, onRefresh, createSession, clean
   return { root, notice, updateLocale() {
       if (dialog) { updateDialog?.(); return; }
       paint();
-    }, setBusy(value) { busy = value; paintNotice(); }, render(value, errs = []) { tree = value; loaded = true; error = ''; warnings = errs; paint(); },
+    }, setBusy(value) { busy = value; paintNotice(); }, render(value, errs = [], caps = {}) { tree = value; capabilities = caps; loaded = true; error = ''; warnings = errs; paint(); },
     dispose() { disposed = true; renderAbort.abort(); root.remove(); style.remove(); } };
 }

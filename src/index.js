@@ -27,7 +27,7 @@ export async function startNavigator(win, css) {
       if (requestLocale !== i18n.locale) { queued = true; return; }
       if (disposed) return;
       const signature = JSON.stringify(snapshot);
-      if (signature !== fingerprint) { fingerprint = signature; view.render(snapshot.repositories, snapshot.errors); }
+      if (signature !== fingerprint) { fingerprint = signature; view.render(snapshot.repositories, snapshot.errors, snapshot.capabilities); }
     } catch (error) { if (!disposed) { fingerprint = ''; view.notice(tr('loadFailed', {detail: error.message})); } }
     finally { running = false; if (!disposed) { view.setBusy(false); if (queued) { const next = forceQueued; queued = false; forceQueued = false; void refresh(next); } } }
   }

@@ -2,9 +2,9 @@ import { tr, withLocale } from './i18n.js';
 import { createInterface } from 'node:readline';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { createHost } from '../host.js';
+import { createHistoryHost } from '../history-host.js';
 
-export function createMcpHandler({ host = createHost(), html, uri }) {
+export function createMcpHandler({ host = createHistoryHost(), html, uri }) {
   const icon = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="7" r="2"/><path d="M6 7v10M8 14c7 0 10-1 10-5"/></g></svg>').toString('base64');
   const tool = {
     name: 'open_worktree_navigator', title: 'Worktrees', description: tr('browseDescription'),
@@ -29,7 +29,7 @@ export function createMcpHandler({ host = createHost(), html, uri }) {
       throw Object.assign(Error(tr('invalidNavigatorArgs')), {code: -32602});
     }
     switch (method) {
-      case 'initialize': return { protocolVersion: params.protocolVersion || '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'worktree-navigator', version: '0.3.0' } };
+      case 'initialize': return { protocolVersion: params.protocolVersion || '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'worktree-navigator', version: '0.3.1' } };
       case 'ping': return {};
       case 'tools/list': return { tools: [{...tool, description: tr('browseDescription')}, {...createTool, title: tr('createTitle'), description: tr('createDescription')}, {...cleanupTool,title:tr('cleanupTitle'),description:tr('cleanupDescription')}] };
       case 'resources/list': return { resources: [{ uri, name: 'Worktrees', mimeType: 'text/html;profile=mcp-app' }] };
@@ -54,7 +54,7 @@ export function createMcpHandler({ host = createHost(), html, uri }) {
         const args = params.arguments ?? {};
         if (typeof args !== 'object' || Array.isArray(args) || Object.keys(args).some(k => !['action', 'force', 'locale'].includes(k)) || (args.action != null && !['status', 'snapshot'].includes(args.action)) || (args.force != null && typeof args.force !== 'boolean')) throw Object.assign(Error(tr('invalidNavigatorArgs')), { code: -32602 });
         try {
-          const data = args.action === 'snapshot' ? await host.snapshot(signal, { force: args.force === true }) : { ready: true, version: '0.3.0' };
+          const data = args.action === 'snapshot' ? await host.snapshot(signal, { force: args.force === true }) : { ready: true, version: '0.3.1' };
           return { content: [{ type: 'text', text: args.action === 'snapshot' ? tr('repositoriesRead', {count: data.repositories.length}) : tr('ready') }], structuredContent: data };
         } catch (e) { if (signal?.aborted) throw e; return { isError: true, content: [{ type: 'text', text: e.message }] }; }
       }

@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-在 Codex Desktop 独立的 **Worktrees** 页面中，按 **Repository → Worktree → Sessions** 浏览，打开已有会话，或保留原项目身份在额外 Worktree 中新建会话。
+在 Codex Desktop 独立的 **Worktrees** 页面中，按 **Repository → Worktree → Sessions** 浏览工作树和已保存会话，并打开已有会话。
 
 本项目是独立社区项目，与 OpenAI 无隶属或背书关系。界面与文档均支持英文和简体中文。
 
@@ -12,8 +12,8 @@
 
 ## 环境要求
 
-- macOS、PATH 中可用的 Git，以及 Node.js 22+（含 npm），用于构建和安装。
-- 支持 MCP Apps 全局入口的 Codex Desktop，以及已运行的本地 App Server control socket。已有验证环境为 Desktop 26.1023.51421 / build 22530、App Server 0.165.0；其他宿主版本需要验证。
+- macOS、PATH 中可用的 Git、sqlite3 和 lsof，以及 Node.js 22+（含 npm），用于构建和安装。
+- 支持 MCP Apps 入口的 Codex Desktop，内置 server 需支持 `project/list` 和 `thread/list`。已验证 Desktop 26.1103.31037 / build 25241 内置 server 0.167.0-alpha.3.2 的列表接口。
 - 默认应用路径为 `/Applications/ChatGPT.app`；名称或位置不同时使用 `--app` 指定。
 - Codex 中已保存的项目，以及至少一个真实存在的额外 Git Worktree；主工作目录本身不展示。
 
@@ -43,7 +43,7 @@ npm run install:codex -- --node /absolute/path/to/node
 node scripts/install.mjs --help
 ```
 
-默认使用应用内置 Node；`--node` 应指向可执行的 Node.js 22+。配置目录优先级为 `--codex-home`、`CODEX_HOME`、`~/.codex`。升级和卸载时使用相同参数。
+默认使用应用内置 Node；也可通过 `--node` 指定 Node.js 22+。安装程序保存内置 CLI 路径用于列表查询。配置目录优先级为 `--codex-home`、`CODEX_HOME`、`~/.codex`。升级和卸载时使用相同参数。
 
 ## 语言
 
@@ -57,10 +57,9 @@ node scripts/install.mjs --help
 
 - 仓库与 Worktree 可独立折叠，展开状态保存在本地。
 - 使用右侧 **打开 ↗** 进入已有会话；点击行文字不跳转。
-- **新建会话** 可选择原项目并填写首条消息。留空或纯空白创建空会话；填写内容则在 Desktop 打开后自动执行首轮。
-- 新会话以只读权限开始，可在 Codex 中调整。原仓库需已有 Codex 信任状态。
+- **新建会话**：选择原项目，在当前 Worktree 下创建只读会话并打开。可填写首条消息，消息只入队，扩展不自动启动模型执行。目录需已有信任配置。
 - 支持手动刷新、获得焦点刷新，以及页面可见时每 60 秒刷新。删除或 prunable 的目录不展示；零会话 Worktree 仍保留。
-- **清理** 会对单个工作树弹出确认框，请先停止使用此目录的任务。清理保留分支和 Codex 会话记录，拒绝主工作目录、锁定目录、本地修改、未跟踪/忽略文件，以及连接的 App Server 中仍有已加载会话的目录。detached 提交需先由本地分支保留。其他 Codex 进程的会话可能不在此服务的可见范围内，请在确认前关闭。清理执行不带强制选项的 `git worktree remove`；报错或超时后先刷新确认结果，再决定是否重试。
+- **清理**：确认后删除额外 Worktree 目录，保留分支和会话记录。请先停止相关任务并归档该目录下的会话。存在未归档会话（含空会话和附属会话）、本机进程占用、文件变更（含未跟踪及忽略文件）、锁定或未被分支保留的 detached 提交时拒绝清理。
 - detached HEAD 显示短 SHA；来源分支不根据相同 Commit 推测。
 
 ## 升级与卸载
@@ -81,18 +80,16 @@ npm run uninstall:codex -- --app /Applications/Codex.app --codex-home /absolute/
 | --- | --- |
 | 安装找不到可执行文件 | 检查 `--app`，或指定 `--node`；仍需要应用内置 CLI。 |
 | 没有 Worktrees 入口 | 重启 Desktop，检查探索页和 MCP 注册；宿主支持情况与版本有关。 |
-| App Server 连接失败 | 检查现有本地 App Server 是否运行、是否使用相同 Codex home。默认 socket 为 `$CODEX_HOME/app-server-control/app-server-control.sock`，扩展不会启动服务。 |
+| 列表加载失败 | 重新安装并重新加载扩展 MCP 连接；检查注册配置的 `CODEX_CLI_PATH` 指向当前应用内置 CLI。 |
 | 没有 Worktree | 将仓库保存为 Codex 项目，检查 `git worktree list` 并刷新；仅展示有效额外目录。 |
-| 无法新建 | 将主工作目录作为 Codex 项目打开，通过 Codex 确认目录信任。 |
-| 创建部分失败 | 根据错误中的会话 ID 检查原生和归档列表，再决定是否重新创建。 |
 
-页面底部聊天框由宿主管理。新建防重记录在 MCP 进程存活期间有效；重启后重试中断的操作前，应检查已有会话。
+全局 Worktrees 页面无需聊天上下文即可加载列表。页面底部聊天框由宿主管理。
 
 ## 隐私与实现边界
 
-扩展通过本地文件及现有 App Server 读取已保存的项目根目录、Git 状态、会话导航信息（含标题/预览）和信任配置，不读取凭证文件，不发送遥测。填写的首条消息会进入 Codex 队列，随后由 Codex 使用用户配置的模型与服务处理。
+扩展通过短生命周期的内置 app-server 查询项目、创建和持久化会话；通过 sqlite3 只读查询 `state_5.sqlite` 中的会话导航字段，包含空会话。仅支持已验证的索引版本，其他版本明确报错。固定 Git 查询核验目录，lsof 检查本机进程占用。扩展不读取凭证文件、不发送遥测；内置 server 使用现有 Codex 配置。
 
-目录发现使用固定的 Git 只读查询。确认清理后由 MCP 进程直接执行固定的 `git worktree remove` 命令，不经过 Shell；使用当前用户的文件系统权限删除目标目录及其 Git 登记。新建会话会保存会话与权限，通过归档/恢复释放创建端占用，并按需排队首条消息。扩展不会授予目录信任。安全问题报告方式见 [SECURITY.md](SECURITY.md)。
+浏览与创建使用独立 RPC 白名单。创建完成后释放该连接的会话再跳转 Desktop。清理不依赖独立 server 的 loaded 列表，也不代表跨进程原子锁；确认前需停止使用目录的任务，避免清理期间启动新任务。安全问题报告方式见 [SECURITY.md](SECURITY.md)。
 
 ## 开发与验证
 

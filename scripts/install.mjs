@@ -64,7 +64,7 @@ try {
     try { await rename(target, old); moved = true; } catch (e) { if (e.code !== 'ENOENT') throw e; }
     try {
       await rename(staging, target);
-      await exec(cli, ['mcp', 'add', name, '--env', `CODEX_HOME=${home}`, '--', node, join(target, 'src/server/mcp.js')], { env });
+      await exec(cli, ['mcp', 'add', name, '--env', `CODEX_HOME=${home}`, '--env', `CODEX_CLI_PATH=${cli}`, '--', node, join(target, 'src/server/mcp.js')], { env });
       await rm(old, { recursive: true, force: true });
     } catch (e) { await rm(target, { recursive: true, force: true }); if (moved) await rename(old, target); throw e; }
     console.log(tr('installed'));

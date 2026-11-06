@@ -131,3 +131,13 @@ test('cleanup requires confirmation, blocks duplicate submits, and refreshes aft
   assert.equal(v.root.querySelector('dialog'),null);assert.deepEqual(refreshes,[true]);assert.equal(v.root.querySelector('.wtn-cleanup'),null);
  }finally{v.dispose();}
 });
+
+test('Desktop capabilities disable creation and cleanup and show the known session state', () => {
+  const v = fixture();
+  try {
+    v.render([{ name: 'Repo', commonDir: '/repo/.git', mainRoot: '/repo', worktrees: [{ root: '/extra', threads: [{ id: 't', cwd: '/extra', name: 'Name', status: 'active' }] }] }], [], { createSession: false, cleanupWorktree: false });
+    assert.equal(v.root.querySelector('.wtn-new').disabled, true);
+    assert.equal(v.root.querySelector('.wtn-cleanup').disabled, true);
+    assert.match(v.root.querySelector('.wtn-cleanup').title, /完整/);
+  } finally { v.dispose(); }
+});

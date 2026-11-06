@@ -26,7 +26,7 @@ export function createNativeClient(win, { timeoutMs = 120000, onTeardown = () =>
   };
   win.addEventListener('message', onMessage);
   async function initialize() {
-    const result = await request('ui/initialize', { appInfo: { name: 'worktree-navigator', version: '0.3.0' }, appCapabilities: {}, protocolVersion: '2026-01-26' });
+    const result = await request('ui/initialize', { appInfo: { name: 'worktree-navigator', version: '0.3.1' }, appCapabilities: {}, protocolVersion: '2026-01-26' });
     send({ method: 'ui/notifications/initialized' }); initialized = true; return result;
   }
   function dispose() {

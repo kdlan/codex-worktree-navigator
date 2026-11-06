@@ -5,6 +5,28 @@ import { tr } from './i18n.js';
 import { realpath, stat } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 
+export async function localGitQuery(method, params) {
+  const { command, cwd } = params;
+  const args = command?.slice(3);
+  const allowed = [
+    ['rev-parse', '--is-bare-repository', '--path-format=absolute', '--git-common-dir'],
+    ['rev-parse', '--show-toplevel'], ['worktree', 'list', '--porcelain', '-z'],
+    ['status', '--porcelain=v1', '-z', '--untracked-files=no'],
+    ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignored'],
+    ['for-each-ref', '--contains=HEAD', '--format=%(refname)', 'refs/heads/'],
+  ];
+  if (method !== 'command/exec' || command?.[0] !== 'git' || command[1] !== '-C' || command[2] !== cwd || !isAbsolute(cwd) || !allowed.some(a => JSON.stringify(a) === JSON.stringify(args))) throw Error(tr('unsupportedOperation'));
+  try {
+    return { ...await execGit('git', ['-C', cwd, ...args], {
+      cwd, timeout: 10000, maxBuffer: 4 * 1024 * 1024,
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' },
+    }), exitCode: 0 };
+  } catch (e) {
+    if (!Number.isInteger(e.code)) throw e;
+    return { stdout: e.stdout, stderr: e.stderr, exitCode: e.code };
+  }
+}
+
 export function parseWorktrees(text) {
   const worktrees = []; let record;
   for (const field of text.split('\0')) {

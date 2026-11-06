@@ -89,7 +89,7 @@ export async function withAppServer(work, { socketPath = join(process.env.CODEX_
   try {
     await ready;
     clearTimeout(timer);
-    await request('initialize', { clientInfo: { name: 'worktree_navigator', version: '0.3.0' }, capabilities: { experimentalApi: true } });
+    await request('initialize', { clientInfo: { name: 'worktree_navigator', version: '0.3.1' }, capabilities: { experimentalApi: true } });
     frame(JSON.stringify({ method: 'initialized' }));
     return await work(request);
   } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); fail(Error(tr('connectionFinished'))); }
