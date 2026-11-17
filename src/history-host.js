@@ -16,6 +16,13 @@ export function createHistoryHost({ connect = withHistoryServer, connectionOptio
   const serialize = work => { const result = mutation.then(work); mutation = result.catch(() => {}); return result; };
   return {
     createSession(args) { return serialize(() => sessionHost.createSession(args)); },
+    async archiveSession({ threadId }, signal) {
+      if (typeof threadId !== 'string' || !/^[a-zA-Z0-9-]{1,128}$/.test(threadId)) throw Error(tr('invalidArchiveArgs'));
+      return serialize(() => connectSession(async rpc => {
+        await rpc('thread/archive', { threadId });
+        return { threadId, archived: true };
+      }, { ...connectionOptions, signal }));
+    },
     async cleanupWorktree(args) {
       if (!args || args.confirmed !== true || !normalizePath(args.worktreePath) || typeof args.requestId !== 'string' || !/^[a-zA-Z0-9-]{8,80}$/.test(args.requestId)) throw Error(tr('cleanupInvalid'));
       const signature = JSON.stringify({ worktreePath: args.worktreePath, confirmed: true });
@@ -49,7 +56,7 @@ export function createHistoryHost({ connect = withHistoryServer, connectionOptio
         for (const repo of repositories) for (const worktree of repo.worktrees) {
           worktree.threads = worktree.threads.map(t => ({ id: t.id, cwd: t.cwd, name: t.name, updatedAt: t.updatedAt, archived: t.archived === true }));
         }
-        return { repositories, errors: snapshot.errors, capabilities: { createSession: true, cleanupWorktree: true } };
+        return { repositories, errors: snapshot.errors, capabilities: { createSession: true, cleanupWorktree: true, archiveSession: true } };
       }, { ...connectionOptions, signal });
     },
   };

@@ -1,7 +1,7 @@
 import { createI18n } from './i18n.js';
 import { worktreeLabel, threadLink } from './model.js';
 
-export function createView({ win, css, navigate, onRefresh, createSession, cleanupWorktree, i18n = createI18n(win.openai?.locale) }) {
+export function createView({ win, css, navigate, onRefresh, createSession, cleanupWorktree, archiveSession, i18n = createI18n(win.openai?.locale) }) {
   const tr = i18n.t;
   const doc = win.document;
   const root = doc.createElement('section');
@@ -13,6 +13,7 @@ export function createView({ win, css, navigate, onRefresh, createSession, clean
   if (!expanded || typeof expanded !== 'object' || Array.isArray(expanded)) expanded = {};
   let tree = [], error = '', warnings = [], busy = false, loaded = false, disposed = false;
   let capabilities = {};
+  const archiving = new Set();
   let dialog = null, updateDialog = null;
   let renderAbort = new AbortController();
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -33,6 +34,35 @@ export function createView({ win, css, navigate, onRefresh, createSession, clean
     return d;
   }
   async function open(url) { try { await navigate(url); } catch (e) { if (!disposed) notice(tr('navigationFailed', {detail: e.message})); } }
+  async function archive(threadId, control) {
+    if (archiving.has(threadId)) return;
+    const restoreFocus = doc.activeElement === control;
+    archiving.add(threadId);
+    control.disabled = true;
+    control.textContent = tr('archiving');
+    control.setAttribute('aria-busy', 'true');
+    try {
+      await archiveSession(threadId);
+    } catch (e) {
+      archiving.delete(threadId);
+      if (!disposed) {
+        paint();
+        notice(tr('archiveFailed', { detail: e.message }));
+      }
+      return;
+    }
+    archiving.delete(threadId);
+    if (disposed) return;
+    tree = tree.map(r => ({ ...r, worktrees: r.worktrees.map(w => ({
+      ...w, threads: w.threads.map(t => t.id === threadId ? { ...t, archived: true } : t),
+    })) }));
+    error = '';
+    paint();
+    if (restoreFocus && (!doc.activeElement || doc.activeElement === doc.body)) {
+      [...root.querySelectorAll('[data-wtn-open-thread]')].find(n => n.dataset.wtnOpenThread === threadId)?.focus();
+    }
+    onRefresh(true);
+  }
   function showCreate(w, r) {
     if (dialog) return;
     const modal = el('dialog', 'wtn-create-dialog'); dialog = modal;
@@ -132,7 +162,15 @@ export function createView({ win, css, navigate, onRefresh, createSession, clean
         else time.textContent = tr('unknownTime');
         const jump = button(tr('openSession', {name}), tr('open'), () => open(threadLink(t.id, tr)), 'wtn-open-session');
         jump.dataset.wtnOpenThread = t.id;
-        row.append(time, jump); row.title = `${name}\n${t.cwd}\n${time.textContent}`; sessions.append(row);
+        row.append(time, jump);
+        if (capabilities.archiveSession === true && !t.archived) {
+          const pending = archiving.has(t.id);
+          const control = button(tr('archiveSession', {name}), tr(pending ? 'archiving' : 'archive'), () => archive(t.id, control), 'wtn-archive-session');
+          control.disabled = pending;
+          if (pending) control.setAttribute('aria-busy', 'true');
+          row.append(control);
+        }
+        row.title = `${name}\n${t.cwd}\n${time.textContent}`; sessions.append(row);
       }
       if (!w.threads.length) sessions.append(el('p', 'wtn-empty-sessions', tr('noSessions')));
       d.append(sessions);

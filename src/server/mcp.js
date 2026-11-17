@@ -24,6 +24,12 @@ export function createMcpHandler({ host = createHistoryHost(), html, uri }) {
     annotations:{readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false},
     _meta:{ui:{visibility:['app']}},
   };
+  const archiveTool = {
+    name: 'archive_worktree_session', title: tr('archive'), description: tr('archiveDescription'),
+    inputSchema: { type: 'object', properties: { threadId: { type: 'string', pattern: '^[a-zA-Z0-9-]{1,128}$' }, locale: { type: 'string', enum: ['en', 'zh-CN'] } }, required: ['threadId'], additionalProperties: false },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    _meta: { ui: { visibility: ['app'] } },
+  };
   async function handle(method, params = {}, signal) {
     if (method === 'tools/call' && params.arguments?.locale != null && !['en', 'zh-CN'].includes(params.arguments.locale)) {
       throw Object.assign(Error(tr('invalidNavigatorArgs')), {code: -32602});
@@ -31,13 +37,19 @@ export function createMcpHandler({ host = createHistoryHost(), html, uri }) {
     switch (method) {
       case 'initialize': return { protocolVersion: params.protocolVersion || '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'worktree-navigator', version: '0.3.1' } };
       case 'ping': return {};
-      case 'tools/list': return { tools: [{...tool, description: tr('browseDescription')}, {...createTool, title: tr('createTitle'), description: tr('createDescription')}, {...cleanupTool,title:tr('cleanupTitle'),description:tr('cleanupDescription')}] };
+      case 'tools/list': return { tools: [{...tool, description: tr('browseDescription')}, {...createTool, title: tr('createTitle'), description: tr('createDescription')}, {...cleanupTool,title:tr('cleanupTitle'),description:tr('cleanupDescription')}, {...archiveTool, title: tr('archive'), description: tr('archiveDescription')}] };
       case 'resources/list': return { resources: [{ uri, name: 'Worktrees', mimeType: 'text/html;profile=mcp-app' }] };
       case 'resources/templates/list': return { resourceTemplates: [] };
       case 'resources/read':
         if (params.uri !== uri) throw Object.assign(Error(tr('unknownResource')), { code: -32602 });
         return { contents: [{ uri, mimeType: 'text/html;profile=mcp-app', text: html, _meta: { ui: { prefersBorder: false }, 'openai/ui': { availableDisplayModes: ['fullscreen', 'inline'], preferredDisplayMode: 'fullscreen' } } }] };
       case 'tools/call': {
+        if (params.name === archiveTool.name) {
+          const args = params.arguments;
+          if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).some(k => !['threadId', 'locale'].includes(k))) throw Object.assign(Error(tr('invalidArchiveArgs')), { code: -32602 });
+          try { return { content: [{ type: 'text', text: tr('archived') }], structuredContent: await host.archiveSession(args, signal) }; }
+          catch (e) { return { isError: true, content: [{ type: 'text', text: e.message }] }; }
+        }
         if (params.name === cleanupTool.name) {
           const args = params.arguments;
           if (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).some(k=>!['worktreePath','confirmed','requestId','locale'].includes(k))) throw Object.assign(Error(tr('cleanupInvalid')),{code:-32602});
