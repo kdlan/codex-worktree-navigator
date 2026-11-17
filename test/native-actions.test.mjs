@@ -3,9 +3,10 @@ import {resolve,join} from 'node:path';
 import {spawn,execFileSync} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {createHistoryHost} from '../src/history-host.js';
+import {createMcpHandler} from '../src/server/mcp.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-test('bundled server creates and persists a worktree session, protects it, then cleans an archived fixture', async t => {
+test('bundled server creates and archives a worktree session before cleanup', async t => {
 try { await access('/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex'); } catch { t.skip('Requires bundled macOS server'); return; }
 await mkdir('.agents/state', { recursive: true });
 const previousHome = process.env.CODEX_HOME, previousCli = process.env.CODEX_CLI_PATH;
@@ -14,7 +15,7 @@ await mkdir(repo);await mkdir(home);process.env.CODEX_HOME=home;process.env.CODE
 await writeFile(join(home,'config.toml'),`[projects.${JSON.stringify(repo)}]\ntrust_level = "trusted"\n`);
 const git=(...args)=>execFileSync('git',args,{stdio:'pipe'});
 git('-C',repo,'init','-b','main');await writeFile(join(repo,'file'),'fixture');git('-C',repo,'add','.');git('-C',repo,'-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-m','fixture');git('-C',repo,'worktree','add','-b','fixture',wt);
-async function server(work){const p=spawn(process.env.CODEX_CLI_PATH,['app-server','--listen','stdio://'],{env:process.env,stdio:['pipe','pipe','pipe']});p.stderr.resume();let id=0;const pending=new Map();const lines=createInterface({input:p.stdout});lines.on('line',l=>{const m=JSON.parse(l);const r=pending.get(m.id);if(r){pending.delete(m.id);m.error?r.reject(Error(m.error.message)):r.resolve(m.result)}});const timer=setTimeout(()=>{for(const r of pending.values())r.reject(Error('timeout'));p.kill()},30000);const rpc=(method,params)=>new Promise((resolve,reject)=>{pending.set(++id,{resolve,reject});p.stdin.write(JSON.stringify({id,method,params})+'\n')});try{await rpc('initialize',{clientInfo:{name:'navigator_fixture',version:'1'},capabilities:{experimentalApi:true}});p.stdin.write('{"method":"initialized"}\n');return await work(rpc)}finally{clearTimeout(timer);lines.close();p.kill();await new Promise(r=>p.once('exit',r));}}
+async function server(work){const p=spawn(process.env.CODEX_CLI_PATH,['app-server','--listen','stdio://'],{env:process.env,stdio:['pipe','pipe','pipe']});p.stderr.resume();let id=0;const pending=new Map();const lines=createInterface({input:p.stdout});lines.on('line',l=>{const m=JSON.parse(l);const r=pending.get(m.id);if(r){pending.delete(m.id);m.error?r.reject(Error(m.error.message)):r.resolve(m.result)}});const timer=setTimeout(()=>{for(const r of pending.values())r.reject(Error(`Timed out waiting for ${r.method}`));p.kill()},30000);const rpc=(method,params)=>new Promise((resolve,reject)=>{pending.set(++id,{method,resolve,reject});p.stdin.write(JSON.stringify({id,method,params})+'\n')});try{await rpc('initialize',{clientInfo:{name:'navigator_fixture',version:'1'},capabilities:{experimentalApi:true}});p.stdin.write('{"method":"initialized"}\n');return await work(rpc)}finally{clearTimeout(timer);lines.close();p.kill();await new Promise(r=>p.once('exit',r));}}
 try{
  const project=await server(rpc=>rpc('project/create',{name:'Navigator fixture',roots:[{path:repo}],idempotencyKey:'fixture-project'}));assert.ok(project.project.id);
  const host=createHistoryHost();const snap=await host.snapshot();assert.equal(snap.repositories.length,1);
@@ -24,7 +25,11 @@ try{
  assert.equal(saved.thread.cwd,wt);assert.equal(saved.thread.projectId,projectId);assert.equal(saved.queue.data.length,1);
  const refreshed=await host.snapshot();assert.ok(refreshed.repositories[0].worktrees[0].threads.some(t=>t.id===result.threadId));
  await assert.rejects(host.cleanupWorktree({worktreePath:wt,confirmed:true,requestId:'blocked-clean'}),/unarchived/);await access(wt);
- await server(rpc=>rpc('thread/archive',{threadId:result.threadId}));
+ const handler=createMcpHandler({host,html:'',uri:'ui://test'});
+ const archived=await handler('tools/call',{name:'archive_worktree_session',arguments:{threadId:result.threadId}});
+ assert.deepEqual(archived.structuredContent,{threadId:result.threadId,archived:true},archived.content[0].text);
+ const afterArchive=await host.snapshot();
+ assert.equal(afterArchive.repositories[0].worktrees[0].threads.find(t=>t.id===result.threadId)?.archived,true);
  const holder=spawn(process.execPath,['-e',"process.stdout.write('ready'); setInterval(()=>{},1000)"],{cwd:wt,stdio:['ignore','pipe','ignore']});
  try {
    await new Promise(resolve=>holder.stdout.once('data',resolve));

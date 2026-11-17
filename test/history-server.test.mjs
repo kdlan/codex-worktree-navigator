@@ -24,7 +24,7 @@ test('history reader works without caller metadata and permits only navigation r
   const f = fixture();
   await withHistoryServer(async rpc => {
     await rpc('project/list', {}); await rpc('thread/list', {});
-    for (const method of ['thread/start', 'thread/loaded/list', 'command/exec', 'initialize']) await assert.rejects(rpc(method, {}), /Unsupported/);
+    for (const method of ['thread/start', 'thread/archive', 'thread/loaded/list', 'command/exec', 'initialize']) await assert.rejects(rpc(method, {}), /Unsupported/);
   }, f.options);
   assert.deepEqual(f.calls.map(m => m.method), ['initialize', 'initialized', 'project/list', 'thread/list']);
   assert.ok(f.killed());
@@ -55,10 +55,29 @@ test('global MCP snapshot includes empty stored threads and exposes guarded acti
   const result = await handler('tools/call', { name: 'open_worktree_navigator', arguments: { action: 'snapshot' } });
   assert.equal(result.isError, undefined);
   const threads = result.structuredContent.repositories[0].worktrees[0].threads;
-  assert.deepEqual(result.structuredContent.capabilities, { createSession: true, cleanupWorktree: true });
+  assert.deepEqual(result.structuredContent.capabilities, { createSession: true, cleanupWorktree: true, archiveSession: true });
   assert.equal(threads.length, 3); assert.equal(threads.find(t => t.id === 'archived').archived, true);
   assert.ok(threads.every(t => !('status' in t) && !('turns' in t) && !('preview' in t)));
   assert.equal(calls.filter(([method]) => method === 'project/list').length, 2);
   const count = calls.length;
   await assert.rejects(host.createSession({})); await assert.rejects(host.cleanupWorktree({})); assert.equal(calls.length, count);
+});
+
+test('MCP archive delegates to the session transport and reports native errors', async () => {
+  const calls = [];
+  const host = createHistoryHost({
+    connectSession: async work => work(async (method, params) => {
+      calls.push([method, params]);
+      if (params.threadId === 'missing') throw Error('Session not found');
+    }),
+  });
+  const handler = createMcpHandler({ host, html: '', uri: 'ui://test' });
+  const archive = threadId => handler('tools/call', { name: 'archive_worktree_session', arguments: { threadId } });
+  assert.equal((await archive('../invalid')).isError, true);
+  assert.deepEqual(calls, []);
+  assert.deepEqual((await archive('target')).structuredContent, { threadId: 'target', archived: true });
+  assert.deepEqual(calls, [['thread/archive', { threadId: 'target' }]]);
+  const failed = await archive('missing');
+  assert.equal(failed.isError, true);
+  assert.match(failed.content[0].text, /Session not found/);
 });

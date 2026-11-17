@@ -129,6 +129,12 @@ export const messages = {
     "en": "Archived",
     "zh-CN": "已归档"
   },
+  "archive": {"en": "Archive", "zh-CN": "归档"},
+  "archiveSession": {"en": "Archive session: {name}", "zh-CN": "归档会话：{name}"},
+  "archiving": {"en": "Archiving…", "zh-CN": "正在归档…"},
+  "archiveDescription": {"en": "Archive a Codex worktree session and keep its conversation history.", "zh-CN": "归档 Codex Worktree 会话并保留聊天记录。"},
+  "invalidArchiveArgs": {"en": "Invalid session archive request.", "zh-CN": "归档请求无效。"},
+  "archiveFailed": {"en": "Could not archive the session: {detail}", "zh-CN": "归档会话失败：{detail}"},
   "unknownTime": {
     "en": "Unknown time",
     "zh-CN": "时间未知"

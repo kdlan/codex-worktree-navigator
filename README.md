@@ -57,6 +57,7 @@ Installer messages follow `LC_ALL`, then `LC_MESSAGES`, then `LANG`, with Englis
 
 - Expand repositories and worktrees; expansion state is saved locally.
 - Select **Open ↗** to open an existing session. Session row text does not navigate.
+- Select **Archive** beside an unarchived session. The list refreshes and keeps the session visible with an **Archived** label.
 - **+ New session** creates and opens a read-only session in the selected worktree under its original project. An optional first message is queued; the extension does not start model execution. Existing directory trust is required.
 - Refresh manually, on focus, or automatically every 60 seconds while visible. Deleted and prunable worktrees are excluded; worktrees with no sessions remain visible.
 - **Clean up** removes a confirmed extra worktree while retaining branches and session records. Stop its tasks and archive its sessions first. Unarchived sessions (including empty and attached threads), open files, local changes (including untracked and ignored files), locks, and detached commits without a retaining branch prevent removal.

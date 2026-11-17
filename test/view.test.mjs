@@ -141,3 +141,40 @@ test('Desktop capabilities disable creation and cleanup and show the known sessi
     assert.match(v.root.querySelector('.wtn-cleanup').title, /完整/);
   } finally { v.dispose(); }
 });
+
+test('archive runs only for the selected session, permits retry, and refreshes on success', async () => {
+  const calls = [], refreshes = [];
+  let complete;
+  const v = fixture({
+    captureWindow: win => { win.localStorage.getItem = () => JSON.stringify({'worktree:/repo/.git:/extra': true}); },
+    archiveSession: async id => {
+      calls.push(id);
+      if (calls.length === 1) throw Error('temporary failure');
+      await new Promise(resolve => { complete = resolve; });
+    },
+    onRefresh: force => refreshes.push(force),
+  });
+  const rows = [{ name: 'Repo', commonDir: '/repo/.git', mainRoot: '/repo', worktrees: [{
+    root: '/extra', threads: [{ id: 'live', cwd: '/extra' }, { id: 'saved', cwd: '/extra', archived: true }],
+  }] }];
+  try {
+    v.render(rows, [], { archiveSession: true });
+    const control = () => v.root.querySelector('.wtn-archive-session');
+    assert.equal(v.root.querySelectorAll('.wtn-archive-session').length, 1);
+    assert.equal(v.root.querySelectorAll('.wtn-open-session').length, 2);
+    control().dispatchEvent(new Event('click'));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.match(v.root.querySelector('[data-wtn-notice]').textContent, /归档会话失败.*temporary failure/);
+    assert.deepEqual(refreshes, []);
+    control().dispatchEvent(new Event('click'));
+    control().dispatchEvent(new Event('click'));
+    assert.equal(control().disabled, true);
+    assert.deepEqual(calls, ['live', 'live']);
+    complete();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(control(), null);
+    assert.equal(v.root.querySelectorAll('.wtn-open-session').length, 2);
+    assert.match(v.root.querySelector('[data-wtn-thread]').textContent, /已归档/);
+    assert.deepEqual(refreshes, [true]);
+  } finally { v.dispose(); }
+});

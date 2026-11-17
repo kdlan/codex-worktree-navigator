@@ -58,6 +58,12 @@ export function createNativeClient(win, { timeoutMs = 120000, onTeardown = () =>
       if (result?.structuredContent?.removed !== true) throw Error(tr('cleanupCheck'));
       return result.structuredContent;
     },
+    async archiveSession(threadId, signal) {
+      if (!initialized) throw Error(tr('notInitialized'));
+      const result = await request('tools/call', { name: 'archive_worktree_session', arguments: { threadId, locale: i18n.locale } }, signal);
+      if (result?.isError) throw Error(result.content?.find(x => x.type === 'text')?.text || tr('invalidResponse'));
+      if (result?.structuredContent?.archived !== true || result.structuredContent.threadId !== threadId) throw Error(tr('invalidResponse'));
+    },
     async navigate(url) {
       if (!initialized) throw Error(tr('notInitialized'));
       const target = new URL(url);

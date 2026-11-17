@@ -8,7 +8,7 @@ export async function startNavigator(win, css) {
   const client = createNativeClient(win, { i18n, onTeardown: () => dispose() });
   const controller = new AbortController();
   let disposed = false, running = false, queued = false, forceQueued = false, fingerprint = '', initialized = false;
-  const view = createView({ win, css, i18n, cleanupWorktree: args => client.cleanupWorktree(args), createSession: args => client.createSession(args), navigate: url => client.navigate(url), onRefresh: force => void refresh(force) });
+  const view = createView({ win, css, i18n, cleanupWorktree: args => client.cleanupWorktree(args), createSession: args => client.createSession(args), archiveSession: id => client.archiveSession(id, controller.signal), navigate: url => client.navigate(url), onRefresh: force => void refresh(force) });
   win.document.body.append(view.root);
   function applyLocale() {
     win.document.documentElement.lang = i18n.locale;
